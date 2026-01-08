@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DQX ダメージ計算機 v65 (Single Line Crit Detail)</title>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            background-color: #12121c;
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-bottom: 80px;
+        }
+
+        h1 { margin-bottom: 20px; font-size: 1.5rem; color: #ff2a6d; text-shadow: 0 0 10px rgba(255, 42, 109, 0.5); }
+
+        .calculator-container {
+            width: 100%;
+            max-width: 720px;
+            position: relative;
+        }
+
+        /* ステップセクション */
+        .step-section {
+            background: rgba(30, 30, 40, 0.95);
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid rgba(255,255,255,0.1);
+            z-index: 2;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        
+        .step-left { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+        .step-label { font-weight: bold; font-size: 1rem; color: #e0e0e0; display: flex; align-items: center; gap: 6px; margin-bottom: 5px;}
+        .step-icon { font-size: 1.3rem; }
+        
+        .input-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .input-item { display: flex; flex-direction: column; font-size: 0.75rem; color: #aaa; }
+
+        .step-result {
+            text-align: right;
+            font-family: "Consolas", "Monaco", monospace;
+            font-size: 1.2rem;
+            color: #05d9e8;
+            min-width: 95px;
+            margin-top: 5px;
+            text-shadow: 0 0 5px rgba(5, 217, 232, 0.3);
+        }
+        
+        .step-result small { 
+            display: block; 
+            font-size: 1.1rem; 
+            color: #ffd700;    
+            font-family: sans-serif; 
+            margin-top: 4px;
+            font-weight: bold; 
+            text-shadow: 0 0 8px rgba(255, 215, 0, 0.6); 
+            letter-spacing: 0.5px;
+        }
+
+        /* ビーム */
+        .beam-connector {
+            height: 20px; /* 初期値 */
+            margin: 0 auto;
+            background: cyan;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 0 15px cyan;
+            position: relative;
+            z-index: 1;
+            min-height: 5px;
+        }
+
+        /* 結果パネル */
+        .result-panel {
+            margin-top: 10px;
+            background: linear-gradient(145deg, #0f3460, #16213e);
+            border-radius: 15px;
+            border: 2px solid #ff2a6d;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            z-index: 3;
+            box-shadow: 0 0 20px rgba(255, 42, 109, 0.2);
+        }
+
+        .total-multiplier { font-size: 0.9rem; color: #ff9f1c; font-weight: bold; margin-bottom: 5px; grid-column: 1 / -1; }
+        
+        .final-damage { font-size: 4rem; font-weight: bold; color: #00ff9d; line-height: 1.1; margin: 10px 0; text-shadow: 0 0 20px rgba(0, 255, 157, 0.4); }
+        .final-label { font-size: 1rem; color: #aaa; letter-spacing: 2px; }
+        .limit-over { color: #ff00ff; text-shadow: 0 0 15px rgba(255, 0, 255, 0.6); }
+        
+        /* 詳細表示 */
+        .detail-toggle-btn {
+            background: none; border: none; color: #ccc; cursor: pointer;
+            font-size: 1.1rem; font-weight: bold;
+            text-decoration: underline; margin-top: 15px; padding: 8px;
+        }
+        .detail-toggle-btn:hover { color: #fff; }
+        
+        .hit-detail-box {
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            border: 1px solid #444;
+            text-align: left;
+            font-size: 1.05rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .hit-row {
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px dashed rgba(255,255,255,0.1);
+        }
+        .hit-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .hit-header { color: #ff9f1c; font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 1.1rem;}
+        .hit-vals { font-family: "Consolas", monospace; display: grid; grid-template-columns: auto 1fr; gap: 5px 15px;}
+        .v-label { color: #aaa; }
+        .v-num { color: #fff; text-align: right; }
+        .v-crit { color: #ff2a6d; font-weight: bold; }
+        
+        .process-info {
+            grid-column: 1 / -1;
+            font-size: 0.9rem;
+            color: #999;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px dotted #444;
+            font-family: "Consolas", monospace;
+            word-break: break-all;
+            line-height: 1.5;
+        }
+        .process-tag { color: #05d9e8; font-weight: bold; margin-right: 4px; }
+        
+        /* A/B Compare Styles */
+        .crit-compare-block {
+            margin-top: 6px;
+            padding-left: 8px;
+            border-left: 2px solid #444;
+            background: rgba(0,0,0,0.2);
+            border-radius: 0 4px 4px 0;
+        }
+        .crit-row { 
+            color: #aaa; font-size: 0.8rem; margin-bottom: 4px; padding: 4px; 
+            font-family: "Consolas", monospace;
+        }
+        .crit-row.selected { color: #fff; background: rgba(255, 42, 109, 0.15); border-radius: 4px; border: 1px solid rgba(255, 42, 109, 0.3);}
+        .crit-row.selected .crit-tag { color: #ff2a6d; }
+        
+        /* 1行表示用スタイル */
+        .crit-tag { display: inline-block; width: 25px; font-weight: bold; color: #888;}
+        .crit-detail { color: #ccc; margin-right: 5px; }
+        .crit-result-part { font-weight: bold; color: #fff; white-space: nowrap;}
+        
+        .hand-tag { font-size: 0.9rem; padding: 2px 8px; border-radius: 4px; margin-left: 8px; }
+        .hand-l { background: rgba(5, 217, 232, 0.2); color: #05d9e8; border: 1px solid #05d9e8; }
+        
+        /* Crit Type Badge */
+        .c-type { font-size: 0.8rem; color: #ff2a6d; margin-left: 5px; font-weight: normal; }
+
+        .compare-tools {
+            margin-top: 15px; padding-top: 10px; border-top: 1px dashed #555;
+            display: flex; flex-direction: column; align-items: center; gap: 10px;
+        }
+        .btn-snapshot {
+            background: #333; color: #ddd; border: 1px solid #666;
+            padding: 8px 25px; border-radius: 20px; cursor: pointer; transition: 0.2s;
+        }
+        .btn-snapshot:hover { background: #555; color: #fff; border-color: #fff; }
+        .diff-display {
+            font-size: 1rem; font-weight: bold; display: none;
+            padding: 5px 15px; border-radius: 5px; background: rgba(0,0,0,0.4);
+        }
+        .diff-plus { color: #00ff9d; } .diff-minus { color: #ff3860; } .diff-even { color: #aaa; }
+
+        /* 入力フィールド */
+        input[type="number"] { 
+            padding: 5px; width: 65px; border-radius: 4px; border: none; 
+            text-align: right; font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        
+        input.fixed-val {
+            background: #1a1a20; color: #666; border: 1px solid #333;
+            pointer-events: none; box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+        }
+        input.editable-val {
+            background: #252f3f; color: #fff; border: 1px solid #4da6ff; font-weight: bold;
+        }
+        input.editable-val:focus {
+            background: #304055; box-shadow: 0 0 8px rgba(77, 166, 255, 0.6); outline: none; border-color: #80c4ff;
+        }
+
+        select { 
+            padding: 5px; border-radius: 4px; border: none; 
+            background: #2a2a35; color: #fff; cursor: pointer; font-size: 0.9rem;
+        }
+        
+        /* 設定パネル */
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 5px;
+            padding: 5px;
+            width: 100%;
+        }
+        .settings-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 0.85rem;
+            color: #ccc;
+        }
+        
+        .detail-stats {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            background: rgba(0,0,0,0.25);
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 5px;
+            border: 1px solid #333;
+        }
+        .detail-stats h4 {
+            grid-column: 1 / -1; margin: 8px 0 4px 0; font-size: 0.85rem; color: #ff9f1c; 
+            border-bottom: 1px solid #444; padding-bottom: 2px;
+            display: flex; justify-content: space-between;
+        }
+        .section-total { color: #fff; font-weight: bold; }
+
+        .stat-row {
+            display: flex; flex-direction: column; gap: 3px;
+        }
+        .stat-label { font-size: 0.75rem; color: #999; }
+        .stat-inputs { display: flex; gap: 4px; align-items: center; }
+        .stat-inputs input, .stat-inputs select { width: 100%; }
+        .sub-label { font-size: 0.65rem; color: #666; margin-right: 2px; width: 12px; text-align: center;}
+
+        .calc-display { 
+            grid-column: 1 / -1; 
+            color: #aaa; font-size: 0.8rem; text-align: right; 
+            border-top: 1px solid #444; margin-top: 5px; padding-top: 8px;
+            display: flex; justify-content: space-between; flex-wrap: wrap; gap: 5px;
+        }
+        .calc-display span { color: #fff; font-weight: bold; font-size: 1rem; }
+
+        .toggle-group { display: flex; gap: 4px; flex-wrap: wrap; align-items: center;}
+        button.toggle-btn {
+            padding: 8px 10px; border: 1px solid #444; background: #1f1f2e;
+            color: #888; cursor: pointer; border-radius: 6px; font-size: 0.8rem;
+            flex: 1; min-width: 50px; text-align: center;
+        }
+        button.toggle-btn:hover { background: #2f2f3e; }
+        button.toggle-btn.active { color: white; font-weight: bold; }
+
+        .orb-badge {
+            padding: 6px 8px; border: 1px solid #444; background: #1f1f2e;
+            color: #666; border-radius: 6px; font-size: 0.75rem;
+            flex: 1; min-width: 60px; text-align: center;
+            pointer-events: none;
+        }
+        .orb-badge.active {
+            border-color: #00e676; color: #00e676; background: rgba(0, 230, 118, 0.1); font-weight: bold;
+        }
+
+        button.toggle-btn.group-dmg.active { background: #ff2a6d; border-color: #ff2a6d; box-shadow: 0 0 8px rgba(255, 42, 109, 0.6); }
+        button.toggle-btn.group-mr.active { background: #05d9e8; color: #000; border-color: #05d9e8; box-shadow: 0 0 8px rgba(5, 217, 232, 0.6); }
+        button.toggle-btn.group-taken.active { background: #ff9f1c; color: #000; border-color: #ff9f1c; box-shadow: 0 0 8px rgba(255, 159, 28, 0.6); }
+        button.toggle-btn.group-fb.active { background: #b5179e; border-color: #b5179e; box-shadow: 0 0 8px rgba(181, 23, 158, 0.6); }
+        button.toggle-btn.group-down.active { background: #e0aaff; color: #240046; border-color: #e0aaff; box-shadow: 0 0 8px rgba(224, 170, 255, 0.6); }
+        
+        button.toggle-btn.btn-baiki.active { background: #ff2a6d; border-color: #ff2a6d; }
+        button.toggle-btn[data-lukani="0.0"].active {
+            background: linear-gradient(135deg, #ffd700, #ff8c00); 
+            color: #000; border-color: #ffd700; box-shadow: 0 0 10px #ffd700;
+        }
+        button.toggle-btn[data-val="1.0"].group-dmg.active {
+            background: #ff5e00; border-color: #ff5e00; box-shadow: 0 0 10px #ff5e00;
+        }
+        button.toggle-btn.btn-force-norm { border: 1px dashed #ff9f1c; color:#ff9f1c; flex:none; width: auto;}
+        button.toggle-btn.btn-force-norm.active { background: #ff9f1c; color: #000; border-color: #ff9f1c; }
+        
+        button#btnCritBuff.active {
+            background: #e91e63; border-color: #e91e63; color: white; box-shadow: 0 0 10px rgba(233, 30, 99, 0.5);
+        }
+
+        .floating-wipe {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(15, 52, 96, 0.95);
+            border: 2px solid #ff2a6d;
+            border-radius: 12px;
+            padding: 8px 15px;
+            text-align: right;
+            z-index: 1000;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.6);
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+            min-width: 120px;
+        }
+        .floating-wipe.hidden {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        .wipe-label { font-size: 0.7rem; color: #aaa; margin-bottom: -3px;}
+        .wipe-value { font-size: 1.6rem; font-weight: bold; color: #fff; font-family: "Consolas", monospace; }
+
+        .separator { width: 100%; border-bottom: 1px dashed rgba(255,255,255,0.1); margin: 5px 0; }
+    </style>
+</head>
+<body>
+
+    <h1>⚡ DQX ダメージ計算機 v65</h1>
+
+    <div id="floatingWipe" class="floating-wipe hidden">
+        <div class="wipe-label">期待値合計</div>
+        <div class="wipe-value" id="wipeResult">0</div>
+    </div>
+
+    <div class="calculator-container">
+
+        <div class="step-section">
+            <div class="step-left">
+                <div class="step-label">
+                    <span class="step-icon">⚔️</span> 攻撃設定 & 基礎ダメージ
+                </div>
+                
+                <div class="settings-grid">
+                    <div class="settings-item">
+                        <span>職業</span>
+                        <select id="calcJob" onchange="updateOptions()"></select>
+                    </div>
+                    <div class="settings-item">
+                        <span>武器 (メイン)</span>
+                        <select id="calcWeapon" onchange="updateOptions()"></select>
+                    </div>
+                    <div class="settings-item">
+                        <span>特技</span>
+                        <select id="calcSkillSelect" onchange="calcBaseDamage()"></select>
+                    </div>
+                    <div class="settings-item">
+                        <span>バイキルト</span>
+                        <button class="toggle-btn btn-baiki active" id="btnBaiki" onclick="toggleBaiki(this)">ON</button>
+                    </div>
+                    <div class="settings-item">
+                        <span>敵守備力</span>
+                        <select id="calcBoss" onchange="calcBaseDamage()">
+                            <option value="760">ヤヌビ (760)</option>
+                            <option value="830">バオラ (830)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="settings-item">
+                        <span>特技ダメージ強化 (160-180)</span>
+                        <select id="skillAddDmg" onchange="calculate()">
+                            <option value="0">なし</option>
+                            <option value="5">160 (+5)</option>
+                            <option value="10">170 (+10)</option>
+                            <option value="20" selected>180 (+20)</option>
+                        </select>
+                    </div>
+
+                    <div class="settings-item" style="grid-column: 1 / -1;">
+                        <span>会心率(%) & 補正</span>
+                        <div class="input-group" style="gap:5px; flex-wrap:nowrap;">
+                            <input type="number" id="critRate" value="24" step="0.1" class="editable-val" style="width:70px;">
+                            <button class="toggle-btn" id="btnCritBuff" onclick="toggleBtn(this)" style="flex:none; width:auto; padding:5px 15px; border-color:#e91e63; color:#ccc;">会心率UP(+15%)</button>
+                        </div>
+                        <div id="critDisplay" style="font-size:0.75rem; color:#aaa; text-align:right; margin-top:2px;">実質計算率: 24.0%</div>
+                    </div>
+                    
+                    <button class="detail-toggle-btn" onclick="toggleDetails()">🔽 攻撃力詳細設定 (基礎/錬金) を開閉</button>
+
+                    <div id="detailStats" class="detail-stats" style="display:none;">
+                        
+                        <div style="grid-column:1/-1;" class="legend">
+                            <span class="l-fixed">固定値(編集不可)</span>
+                            <span class="l-edit">錬金/調整(入力可)</span>
+                        </div>
+
+                        <h4>
+                            ちから設定
+                            <span class="section-total">合計: <span id="txt_str_total">0</span></span>
+                        </h4>
+                        <div class="stat-row">
+                            <span class="stat-label">基本・パッシブ(自動)</span>
+                            <div class="stat-inputs"><input type="number" id="in_job_base" class="fixed-val" readonly><input type="number" id="in_job_passive" class="fixed-val" readonly></div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">武神/禁断</span>
+                            <div class="stat-inputs"><span class="sub-label">武</span><input type="number" id="in_bushin" value="6" class="editable-val"><span class="sub-label">禁</span><input type="number" id="in_kindan" value="6" class="editable-val"></div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">タネ/女神</span>
+                            <div class="stat-inputs"><span class="sub-label">種</span><input type="number" id="in_seed" value="12" class="editable-val"><span class="sub-label">木</span><input type="number" id="in_wood" value="33" class="editable-val"></div>
+                        </div>
+
+                        <h4>
+                            装備設定 (武器+アクセ)
+                            <span class="section-total">合計: <span id="txt_equip_total">0</span></span>
+                        </h4>
+                        <div class="stat-row">
+                            <span class="stat-label">武器右手</span>
+                            <div class="stat-inputs"><input type="number" id="in_wepR_base" class="fixed-val" readonly><input type="number" id="in_wepR_alch" value="0" class="editable-val"></div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">武器左手</span>
+                            <div class="stat-inputs"><input type="number" id="in_wepL_base" class="fixed-val" readonly><input type="number" id="in_wepL_alch" value="0" class="editable-val"></div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">顔(デスマスク)</span>
+                            <div class="stat-inputs"><input type="number" value="0" class="fixed-val" readonly><input type="number" value="0" class="fixed-val" disabled style="opacity:0.5;"></div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">首(チョーカー)</span>
+                            <div class="stat-inputs"><input type="number" id="in_neck_base" value="30" class="fixed-val" readonly><input type="number" id="in_neck_alch" value="40" class="editable-val"></div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">指(断罪)</span>
+                            <div class="stat-inputs"><input type="number" id="in_finger_base" value="0" class="fixed-val" readonly><input type="number" id="in_finger_alch" value="6" class="editable-val"></div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">胸(セト)</span>
+                            <div class="stat-inputs"><input type="number" id="in_chest_base" value="7" class="fixed-val" readonly><input type="number" id="in_chest_alch" value="12" class="editable-val"></div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">腰(戦神/輝石)</span>
+                            <div class="stat-inputs"><input type="number" id="in_belt_base" value="0" class="fixed-val" readonly><input type="number" id="in_belt_alch" value="25" class="editable-val"></div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">札(不思議)</span>
+                            <div class="stat-inputs"><input type="number" id="in_card_base" value="0" class="fixed-val" readonly><input type="number" id="in_card_alch" value="15" class="editable-val"></div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">他(パワチャ)</span>
+                            <div class="stat-inputs"><input type="number" id="in_other_base" value="5" class="fixed-val" readonly><input type="number" id="in_other_alch" value="9" class="editable-val"></div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">紋章(ハルファス)</span>
+                            <div class="stat-inputs"><input type="number" id="in_emblem_base" value="5" class="fixed-val" readonly><input type="number" id="in_emblem_alch" value="20" class="editable-val"></div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">証(夢幻/邪教)</span>
+                            <div class="stat-inputs"><input type="number" id="in_badge_base" value="5" class="fixed-val" readonly><input type="number" id="in_badge_alch" value="0" class="editable-val"></div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">こころ</span>
+                            <div class="stat-inputs">
+                                <select id="in_heart_select" onchange="calcBaseDamage()" style="width:100%; font-size:0.75rem;">
+                                    <option value="6">ガナサダイ(6)</option>
+                                    <option value="12">カブ(12)</option>
+                                    <option value="7">ユシュカ(7)</option>
+                                    <option value="15">ヴァレリア(15)</option>
+                                </select>
+                                <input type="number" id="in_heart_alch" value="0" class="editable-val">
+                            </div>
+                        </div>
+
+                        <h4>その他補正</h4>
+                        <div class="stat-row">
+                            <span class="stat-label">セット効果</span>
+                            <select id="in_set_select" onchange="updateSetEffect()">
+                                <option value="13">トライド (+13)</option>
+                                <option value="11">一角 (+11)</option>
+                                <option value="8">聖域 (+8)</option>
+                                <option value="0">なし</option>
+                            </select>
+                            <input type="hidden" id="in_set_alch" value="13">
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">スキル(0-170)</span>
+                            <div class="stat-inputs"><span class="sub-label">錬</span><input type="number" id="in_skill_170" value="0" class="editable-val"></div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">スキル(180-200)</span>
+                            <div class="stat-inputs"><span class="sub-label">錬</span><input type="number" id="in_skill_alch" value="0" class="editable-val"></div>
+                        </div>
+                    </div>
+
+                    <div class="settings-item" style="grid-column: 1 / -1;">
+                        <span>ルカニ / アヌビス</span>
+                        <div class="toggle-group">
+                            <button class="toggle-btn active" data-lukani="1.0" onclick="setLukani(this)">なし</button>
+                            <button class="toggle-btn" data-lukani="0.7" onclick="setLukani(this)">1段</button>
+                            <button class="toggle-btn" data-lukani="0.6" onclick="setLukani(this)">2段</button>
+                            <button class="toggle-btn" data-lukani="0.0" onclick="setLukani(this)" style="font-weight:bold;">アヌビス</button>
+                        </div>
+                    </div>
+                    
+                    <div class="calc-display">
+                        <div>表示攻撃力: <span id="displayAtkR">0</span> (左:<span id="displayAtkL">0</span>)</div>
+                        <div>敵守備力: <span id="displayDef">760</span></div>
+                        <input type="hidden" id="baseDmg" value="0">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="step-result" id="res-base" style="align-self: flex-end; margin-bottom: 5px;">
+                <span id="baseValDisplay">0</span>
+                <small>START</small>
+            </div>
+        </div>
+
+        <div class="beam-connector" id="beam1"></div>
+
+        <div class="step-section">
+            <div class="step-left">
+                <div class="step-label"><span class="step-icon">🔥</span> 属性ダメージ</div>
+                <div class="input-group">
+                    <div class="input-item">
+                        <span>ベルト</span>
+                        <select id="attrBelt">
+                            <option value="0">なし</option>
+                            <option value="0.15" selected>15%</option>
+                            <option value="0.14">14%</option>
+                            <option value="0.13">13%</option>
+                            <option value="0.12">12%</option>
+                            <option value="0.11">11%</option>
+                            <option value="0.10">10%</option>
+                            <option value="0.09">9%</option>
+                            <option value="0.08">8%</option>
+                            <option value="0.07">7%</option>
+                            <option value="0.06">6%</option>
+                            <option value="0.05">5%</option>
+                            <option value="0.04">4%</option>
+                        </select>
+                    </div>
+                    <div class="input-item">
+                        <span>断罪</span>
+                        <select id="attrRing">
+                            <option value="0">なし</option>
+                            <option value="0.05" selected>5%</option>
+                            <option value="0.04">4%</option>
+                            <option value="0.03">3%</option>
+                            <option value="0.025">2.5%</option>
+                            <option value="0.02">2%</option>
+                        </select>
+                    </div>
+                    <div class="input-item">
+                        <span>こころ</span>
+                        <select id="attrHeart">
+                            <option value="0">なし</option>
+                            <option value="0.03" selected>3%</option>
+                            <option value="0.02">2%</option>
+                            <option value="0.01">1%</option>
+                        </select>
+                    </div>
+                    <div class="input-item">
+                        <span>武器基礎</span>
+                        <select id="attrWepBase">
+                            <option value="0">0%</option>
+                            <option value="0.01">1%</option>
+                            <option value="0.02">2%</option>
+                            <option value="0.03">3%</option>
+                            <option value="0.04">4%</option>
+                            <option value="0.05">5%</option>
+                            <option value="0.06">6%</option>
+                            <option value="0.07">7%</option>
+                            <option value="0.08">8%</option>
+                            <option value="0.09">9%</option>
+                            <option value="0.10">10%</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="step-result" id="res-attr">1000<small>×属性</small></div>
+        </div>
+
+        <div class="beam-connector" id="beam2"></div>
+
+        <div class="step-section">
+            <div class="step-left">
+                <div class="step-label"><span class="step-icon">📢</span> 与ダメージUP (種族・強化・宝珠)</div>
+                
+                <div class="input-group">
+                    <div class="input-item">
+                        <span>ベルト</span>
+                        <select id="raceBelt">
+                            <option value="0">なし</option>
+                            <option value="0.12" selected>12%</option>
+                            <option value="0.11">11%</option>
+                            <option value="0.10">10%</option>
+                            <option value="0.09">9%</option>
+                            <option value="0.08">8%</option>
+                            <option value="0.07">7%</option>
+                            <option value="0.06">6%</option>
+                            <option value="0.05">5%</option>
+                            <option value="0.04">4%</option>
+                        </select>
+                    </div>
+                    <div class="input-item">
+                        <span>断罪</span>
+                        <select id="raceRing">
+                            <option value="0">なし</option>
+                            <option value="0.11" selected>11%</option>
+                            <option value="0.09">9%</option>
+                            <option value="0.07">7%</option>
+                            <option value="0.05">5%</option>
+                            <option value="0.03">3%</option>
+                        </select>
+                    </div>
+                    <div class="input-item">
+                        <span>武器基礎</span>
+                        <select id="raceWepBase">
+                            <option value="0">0%</option>
+                            <option value="0.01">1%</option>
+                            <option value="0.02">2%</option>
+                            <option value="0.03">3%</option>
+                            <option value="0.04">4%</option>
+                            <option value="0.05">5%</option>
+                            <option value="0.06">6%</option>
+                            <option value="0.07">7%</option>
+                            <option value="0.08">8%</option>
+                            <option value="0.09">9%</option>
+                            <option value="0.10">10%</option>
+                        </select>
+                    </div>
+                    
+                    <div class="input-item">
+                        <span>階級</span>
+                        <select id="classBonus">
+                            <option value="0">なし</option>
+                            <option value="0.04">赤肩(4%)</option>
+                            <option value="0.03">青肩(3%)</option>
+                            <option value="0.02">緑肩(2%)</option>
+                            <option value="0.01">灰肩(1%)</option>
+                        </select>
+                    </div>
+
+                    <div class="input-item" style="margin-left:5px;">
+                        <span>&nbsp;</span>
+                        <button class="toggle-btn btn-force-norm" id="btnForceNorm" onclick="toggleBtn(this)">F通常(+10%)</button>
+                    </div>
+                </div>
+
+                <div class="separator"></div>
+
+                <div class="toggle-group">
+                    <button class="toggle-btn group-dmg" data-val="0.5" onclick="toggleBtn(this)">猛攻の書</button>
+                    <button class="toggle-btn group-dmg" id="btnGadget" data-val="1.0" onclick="toggleBtn(this)">ガジェット</button>
+                    <button class="toggle-btn group-mr" data-val="0.5" data-exclusive="mr" onclick="toggleBtn(this)">MR(大)</button>
+                    <button class="toggle-btn group-mr" data-val="0.2" data-exclusive="mr" onclick="toggleBtn(this)">MR(小)</button>
+                    
+                    <div id="orbBadge" class="orb-badge">💎宝珠 0%</div>
+                </div>
+
+            </div>
+            <div class="step-result" id="res-merged">1000<small>×全加算枠</small></div>
+        </div>
+
+        <div class="beam-connector" id="beam3"></div>
+
+        <div class="step-section">
+            <div class="step-left">
+                <div class="step-label"><span class="step-icon">🪃</span> 敵の被ダメUP</div>
+                <div class="step-controls toggle-group">
+                    <button class="toggle-btn group-taken" data-val="0.5" onclick="toggleBtn(this)">レボル系</button>
+                    <button class="toggle-btn group-taken" data-val="0.5" onclick="toggleBtn(this)">災禍の陣</button>
+                </div>
+            </div>
+            <div class="step-result" id="res-taken">1000<small>×弱体</small></div>
+        </div>
+
+        <div class="beam-connector" id="beam4"></div>
+
+        <div class="step-section">
+            <div class="step-left">
+                <div class="step-label"><span class="step-icon">🛡️</span> 敵の属性耐性低下</div>
+                <div class="step-controls toggle-group">
+                    <button class="toggle-btn group-fb" data-val="1.0" data-exclusive="fb" onclick="toggleBtn(this)">FB(大)</button>
+                    <button class="toggle-btn group-fb" data-val="0.5" data-exclusive="fb" onclick="toggleBtn(this)">FB(小)</button>
+                    
+                    <button class="toggle-btn group-down" data-val="0.5" data-exclusive="down" onclick="toggleBtn(this)">低下50%</button>
+                    <button class="toggle-btn group-down" data-val="0.3" data-exclusive="down" onclick="toggleBtn(this)">低下30%</button>
+                </div>
+            </div>
+            <div class="step-result" id="res-fb">1000<small>×耐性</small></div>
+        </div>
+
+        <div class="beam-connector" id="beam5"></div>
+
+        <div class="result-panel">
+            <div class="total-multiplier" id="totalMult">x 1.00 倍</div>
+            
+            <div class="final-label">期待値 (合計)</div>
+            <div class="final-damage" id="finalResult">0</div>
+            
+            <div class="expected-val" id="wipeResult" style="display:none;"></div> 
+
+            <button class="detail-toggle-btn" onclick="toggleRandomDetail()">📊 詳細: 1発ごとのダメージ (Min ~ Max) を表示</button>
+            <div id="randomDetail" class="hit-detail-box"></div>
+
+            <div class="compare-tools">
+                <button class="btn-snapshot" onclick="saveSnapshot()">📷 比較用に状態をキープ</button>
+                <div class="diff-display" id="diffDisplay">
+                    基準(期待値): <span id="snapshotVal">0</span> 
+                    <span id="diffVal" style="margin-left:10px;">±0</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const MAX_WIDTH_PX = 300;
+        const BASE_WIDTH_PX = 12;
+        let snapshotDamage = null; 
+        let lukaniRate = 1.0; 
+        
+        let currentHitBases = []; 
+        let currentHitMinBases = []; 
+        let currentHitMaxBases = []; 
+        
+        let currentHitCritBases = []; 
+        let currentHitCritMinBases = []; 
+        let currentHitCritMaxBases = []; 
+        
+        let currentHitCritMults = [];
+        let currentHitIsLeft = []; 
+        let currentHitCritTypes = []; 
+        let currentHitCritInfo = []; // Stores details for A/B comparison
+
+        const jobs = {
+            'bato': { name: 'バトマス', base: 419, passive: 90, weapons: ['shugoryu', 'hayabusa'] },
+            'masen': { name: '魔法戦士', base: 317, passive: 80, weapons: ['nymph', 'papilsag', 'furumu', 'shugoryu', 'hayabusa'] },
+            'ranger': { name: 'レンジャー', base: 311, passive: 80, weapons: ['jusei', 'sailas', 'nymph', 'papilsag', 'furumu'] },
+            'dougu': { name: 'どうぐ使い', base: 313, passive: 80, weapons: ['spear', 'nymph', 'papilsag', 'furumu'] },
+            'gad': { name: 'ガーディアン', base: 342, passive: 100, weapons: ['spear', 'shugoryu', 'hayabusa'] },
+            'odori': { name: '踊り子', base: 324, passive: 100, weapons: ['jusei', 'fan'] }
+        };
+
+        const weapons = {
+            'hayabusa': { name: 'はやぶさの剣改', atk: 129, type: 'sword' },
+            'shugoryu': { name: '守護竜のつるぎ', atk: 284, type: 'sword' },
+            'jusei': { name: '呪星のツメ', atk: 180, type: 'claw' },
+            'nymph': { name: 'ニンフの妖弓', atk: 325, type: 'bow' },
+            'papilsag': { name: 'パピルサグの弓', atk: 295, type: 'bow', attrVal: 0.05 },
+            'furumu': { name: 'フルムの弓', atk: 315, type: 'bow', attrVal: 0.03 },
+            'fan': { name: '名軍師の羽扇', atk: 253, type: 'fan' },
+            'spear': { name: 'ミカヅチの槍', atk: 358, type: 'spear' },
+            'sailas': { name: 'セーラスエッジ', atk: 210, type: 'boomerang' }
+        };
+
+        const skills = {
+            'normal': { name: '通常攻撃', type: 'weapon', mult: 1.0, hits: 1, orb: 0, crit: 1.0, cap: 9999, isNormal: true },
+            'bato_norm': { name: 'バト通常(二刀)', hits: [{m:1.0, t:'R'}, {m:1.0, t:'L'}], orb:0, crit: 1.0, cap: 9999, isNormal: true },
+            'haya_norm': { name: '隼/ツメ通常', hits: [{m:1.0, t:'R'}, {m:0.7, t:'R'}], orb:0, crit: 1.0, cap: 9999, isNormal: true },
+            'haya_bato_norm': { name: '隼バト通常', hits: [{m:1.0, t:'R'}, {m:0.7, t:'R'}, {m:1.0, t:'L'}, {m:0.7, t:'L'}], orb:0, crit: 1.0, cap: 9999, isNormal: true },
+            
+            // Bato Job Skills
+            'tenka': { name: '天下無双', type: 'weapon', mult: 0.9, hits: 6, orb: 18, crit: 0.3, cap: 1999, batoLeft: true }, 
+            'kokon': { name: '古今無双', type: 'weapon', mult: 1.75, hits: 4, orb: 6, crit: 1.0, cap: 9999, batoLeft: true },
+            'rush': { name: 'ラッシュバーン', type: 'weapon', mult: 4.7, hits: 4, orb: 12, crit: 1.0, cap: 9999, batoLeft: true },
+
+            // Masen Job Skills
+            'madante': { name: 'マダンテ', type: 'fixed', val: 4200, hits: 1, orb: 6, crit: 0, cap: 19999 },
+            'energy': { name: 'エナジーフォール', type: 'fixed', val: 7000, hits: 1, orb: 12, crit: 0, cap: 29999 },
+
+            // Ranger Job Skills
+            'anubis': { name: 'アヌビスアタック', type: 'fixed', val: 1500, hits: 3, width: 25, orb: 12, crit: 0, cap: 9999 },
+            
+            // Gad Job Skills
+            'prana': { name: 'プラーナソード', type: 'weapon', mult: 1.1, hits: 6, orb: 12, crit: 0.25, cap: 9999 },
+            'divine': { name: 'ディバインピルム', type: 'fixed', val: 3000, hits: 1, orb: 12, crit: 0, cap: 9999 },
+
+            // Sword
+            'fushicho': { name: '不死鳥天舞', type: 'weapon', mult: 0.9, hits: 4, orb: 30, crit: 1.0, cap: 9999 },
+            'chohaya': { name: '超はやぶさ斬り', type: 'weapon', mult: 0.75, hits: 4, orb: 36, crit: 1.1, cap: 9999 },
+            'ultima': { name: 'アルテマソード', type: 'weapon', mult: 4.8, hits: 1, orb: 12, crit: 1.0, cap: 9999 },
+            'gigabreak': { name: 'ギガブレイク', type: 'fixed', val: 1500, hits: 1, width: 20, orb: 30, crit: 0.25, cap: 9999 },
+
+            // Bow
+            'darkness': { name: 'ダークネスショット', type: 'weapon', mult: 3.8, add: 10, hits: 1, orb: 18, crit: 0.5, cap: 9999 },
+            'shining': { name: 'シャイニングボウ', type: 'weapon', mult: 0.75, hits: 4, orb: 12, crit: 0.25, cap: 9999 },
+            'sunlight': { name: 'サンライトアロー', type: 'weapon', mult: 0.95, hits: 4, orb: 12, crit: 0.25, cap: 9999 },
+            'lostsnipe': { name: 'ロストスナイプ', type: 'weapon', mult: 2.0, hits: 1, orb: 30, crit: 0.5, cap: 9999 },
+            'samidareuchi': { name: 'さみだれうち', type: 'weapon', mult: 0.65, hits: 4, orb: 30, crit: 0.25, cap: 1999 },
+
+            // Boomerang
+            'dualbreaker': { name: 'デュアルブレイカー', type: 'weapon', mult: 2.4, hits: 2, orb: 18, crit: 0.25, cap: 9999 },
+            'frozen': { name: 'フローズンスワロー', type: 'weapon', mult: 0.8, hits: 7, orb: 12, crit: 1.0, cap: 9999 },
+            'gigashoot': { name: 'ギガシュート', type: 'weapon', mult: 4.5, hits: 2, orb: 12, crit: 1.0, cap: 9999 },
+            'gigathrow': { name: 'ギガスロー', type: 'weapon', mult: 3.0, hits: 2, orb: 12, crit: 1.0, cap: 9999 },
+            'revol': { name: 'レボルスライサー', type: 'weapon', mult: 5.0, hits: 1, orb: 18, crit: 0.5, cap: 9999 },
+
+            // Claw
+            'liger': { name: 'ライガークラッシュ', type: 'weapon', mult: 2.5, hits: 5, orb: 6, crit: 0.25, cap: 9999 },
+            'tiger': { name: 'タイガークロー', type: 'weapon', mult: 1.3, hits: 3, orb: 18, crit: 0.25, cap: 1999 },
+            'godsmash': { name: 'ゴッドスマッシュ', type: 'fixed', val: 4400, hits: 1, width: 15, orb: 12, crit: 0.25, cap: 9999 },
+
+            // Spear
+            'samidare': { name: 'さみだれ突き', type: 'weapon', mult: 0.9, add: 10, hits: 4, orb: 24, crit: 0.25, cap: 9999 },
+            'cho_samidare': { name: '超さみだれ突き', type: 'weapon', mult: 1.2, hits: 5, orb: 12, crit: 0.5, cap: 9999 }, 
+            'bushin': { name: '武神の護法', type: 'weapon', mult: 2.5, hits: 1, orb: 30, crit: 0.5, cap: 9999 },
+            'jigo': { name: 'ジゴスパーク', type: 'fixed', val: 600, hits: 1, width: 30, orb: 30, crit: 0.25, cap: 9999 },
+
+            // Fan (Odori)
+            'ougi_ranbu': { name: 'おうぎ乱舞', type: 'weapon', mult: 0.8, hits: 6, orb: 12, crit: 0.5, cap: 9999 }
+        };
+
+        const inputs = {
+            base: document.getElementById('baseDmg'),
+            baseValDisplay: document.getElementById('baseValDisplay'),
+            
+            attrBelt: document.getElementById('attrBelt'),
+            attrRing: document.getElementById('attrRing'),
+            attrHeart: document.getElementById('attrHeart'),
+            attrWepBase: document.getElementById('attrWepBase'),
+            
+            raceBelt: document.getElementById('raceBelt'),
+            raceRing: document.getElementById('raceRing'),
+            raceWepBase: document.getElementById('raceWepBase'),
+            classBonus: document.getElementById('classBonus'), 
+            btnForceNorm: document.getElementById('btnForceNorm'),
+            calcJob: document.getElementById('calcJob'),
+            calcWeapon: document.getElementById('calcWeapon'),
+            calcSkillSelect: document.getElementById('calcSkillSelect'),
+            btnBaiki: document.getElementById('btnBaiki'),
+            calcBoss: document.getElementById('calcBoss'),
+            critRate: document.getElementById('critRate'),
+            btnCritBuff: document.getElementById('btnCritBuff'),
+            skillAddDmg: document.getElementById('skillAddDmg'), // New
+            
+            displayAtkR: document.getElementById('displayAtkR'),
+            displayAtkL: document.getElementById('displayAtkL'),
+            displayDef: document.getElementById('displayDef'),
+            txtStrTotal: document.getElementById('txt_str_total'),
+            txtEquipTotal: document.getElementById('txt_equip_total'),
+
+            // Details
+            in_job_base: document.getElementById('in_job_base'),
+            in_job_passive: document.getElementById('in_job_passive'),
+            in_bushin: document.getElementById('in_bushin'),
+            in_kindan: document.getElementById('in_kindan'),
+            in_seed: document.getElementById('in_seed'),
+            in_wood: document.getElementById('in_wood'),
+            
+            in_wepR_base: document.getElementById('in_wepR_base'),
+            in_wepR_alch: document.getElementById('in_wepR_alch'),
+            in_wepL_base: document.getElementById('in_wepL_base'),
+            in_wepL_alch: document.getElementById('in_wepL_alch'),
+
+            // Accessories
+            in_heart_select: document.getElementById('in_heart_select'),
+            in_set_alch: document.getElementById('in_set_alch'),
+            in_skill_alch: document.getElementById('in_skill_alch'),
+            in_skill_170: document.getElementById('in_skill_170')
+        };
+
+        const resultLabels = [
+            null, 
+            document.getElementById('res-attr'),
+            document.getElementById('res-merged'),
+            document.getElementById('res-taken'),
+            document.getElementById('res-fb')
+        ];
+
+        const beams = [
+            document.getElementById('beam1'),
+            document.getElementById('beam2'),
+            document.getElementById('beam3'),
+            document.getElementById('beam4'),
+            document.getElementById('beam5')
+        ];
+
+        function init() {
+            inputs.calcJob.innerHTML = '';
+            for(let key in jobs) {
+                let opt = document.createElement('option');
+                opt.value = key;
+                opt.text = jobs[key].name;
+                inputs.calcJob.appendChild(opt);
+            }
+            updateOptions();
+            setupObserver();
+        }
+
+        function setupObserver() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    const wipe = document.getElementById('floatingWipe');
+                    if (entry.isIntersecting) {
+                        wipe.classList.add('hidden');
+                    } else {
+                        wipe.classList.remove('hidden');
+                    }
+                });
+            }, { threshold: 0.1 });
+            observer.observe(document.querySelector('.result-panel'));
+        }
+
+        function toggleDetails() {
+            const el = document.getElementById('detailStats');
+            el.style.display = (el.style.display === 'none') ? 'grid' : 'none';
+        }
+
+        function toggleRandomDetail() {
+            const el = document.getElementById('randomDetail');
+            el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+        }
+
+        function updateSetEffect() {
+            const val = document.getElementById('in_set_select').value;
+            document.getElementById('in_set_alch').value = val;
+            calcBaseDamage();
+        }
+
+        function updateOptions() {
+            const jobKey = inputs.calcJob.value;
+            const currentWep = inputs.calcWeapon.value;
+            
+            // Set Job Base/Passive to inputs
+            inputs.in_job_base.value = jobs[jobKey].base;
+            inputs.in_job_passive.value = jobs[jobKey].passive;
+
+            inputs.calcWeapon.innerHTML = '';
+            jobs[jobKey].weapons.forEach(wKey => {
+                let w = weapons[wKey];
+                let opt = document.createElement('option');
+                opt.value = wKey;
+                opt.text = `${w.name} (攻${w.atk})`;
+                inputs.calcWeapon.appendChild(opt);
+            });
+            if (jobs[jobKey].weapons.includes(currentWep)) {
+                inputs.calcWeapon.value = currentWep;
+            }
+            
+            const wData = weapons[inputs.calcWeapon.value];
+            if(wData) {
+                inputs.in_wepR_base.value = wData.atk;
+                inputs.in_wepL_base.value = wData.atk; 
+            }
+            
+            // Auto Set Skill 170
+            const wepType = weapons[inputs.calcWeapon.value].type;
+            let s170 = 0;
+            if(wepType === 'sword') s170 = 40;
+            else if(wepType === 'bow') s170 = 40;
+            else if(wepType === 'claw') s170 = 75;
+            else if(wepType === 'spear') s170 = 55;
+            else if(wepType === 'fan') s170 = 50;
+            document.getElementById('in_skill_170').value = s170;
+
+            // Auto Set Weapon Attr Base
+            let attrBaseVal = 0;
+            if (wData && wData.attrVal) {
+                attrBaseVal = wData.attrVal;
+            }
+            inputs.attrWepBase.value = attrBaseVal.toFixed(2).replace(/\.?0+$/, "");
+            if(inputs.attrWepBase.value === "") inputs.attrWepBase.value = "0"; 
+
+            updateSkillOptions();
+            calcBaseDamage();
+        }
+
+        function updateSkillOptions() {
+            const jobKey = inputs.calcJob.value;
+            const wepKey = inputs.calcWeapon.value;
+            if(!weapons[wepKey]) return;
+            const wepType = weapons[wepKey].type;
+            
+            inputs.calcSkillSelect.innerHTML = '';
+            let availSkills = ['normal'];
+
+            // Bato logic
+            if (jobKey === 'bato') {
+                availSkills.push('tenka', 'kokon', 'rush');
+                if (wepKey === 'hayabusa') availSkills.push('haya_bato_norm');
+                else availSkills.push('bato_norm');
+            }
+            else if (wepKey === 'hayabusa') availSkills.push('haya_norm');
+
+            // Masen
+            if(jobKey === 'masen') {
+                availSkills.push('madante', 'energy');
+            }
+            // Ranger
+            if(jobKey === 'ranger') {
+                availSkills.push('anubis');
+            }
+            // Gad
+            if(jobKey === 'gad') {
+                availSkills.push('prana', 'divine');
+            }
+
+            // Weapon Skills
+            if (wepType === 'sword') {
+                availSkills.push('fushicho', 'chohaya', 'ultima', 'gigabreak');
+            } else if (wepType === 'bow') {
+                availSkills.push('darkness', 'shining', 'sunlight', 'lostsnipe', 'samidareuchi');
+            } else if (wepType === 'boomerang') {
+                availSkills.push('dualbreaker', 'frozen', 'gigashoot', 'gigathrow', 'revol');
+            } else if (wepType === 'claw') {
+                availSkills.push('liger', 'tiger', 'godsmash');
+            } else if (wepType === 'spear') {
+                availSkills.push('samidare', 'cho_samidare', 'bushin', 'jigo');
+            } else if (wepType === 'fan') {
+                availSkills.push('ougi_ranbu');
+            }
+            
+            availSkills.forEach(sKey => {
+                if (skills[sKey]) {
+                    let opt = document.createElement('option');
+                    opt.value = sKey;
+                    opt.text = skills[sKey].name;
+                    inputs.calcSkillSelect.appendChild(opt);
+                }
+            });
+        }
+
+        function getNum(id) {
+            let el = document.getElementById(id);
+            return el ? (parseFloat(el.value) || 0) : 0;
+        }
+
+        function calcBaseDamage() {
+            const sKey = inputs.calcSkillSelect.value;
+            const skillData = skills[sKey];
+
+            // 基礎攻撃力 (Base) の合計を算出
+            // グループ1: ちから
+            let totalStrBase = 0; 
+            totalStrBase += getNum('in_job_base');
+            totalStrBase += getNum('in_job_passive');
+            totalStrBase += getNum('in_bushin');
+            totalStrBase += getNum('in_kindan');
+            totalStrBase += getNum('in_seed');
+            totalStrBase += getNum('in_wood');
+            
+            // グループ2: 装備(アクセ) 基礎
+            let totalAccBase = 0; 
+            ['in_neck_base', 'in_finger_base', 'in_chest_base', 'in_belt_base', 'in_card_base', 'in_other_base', 'in_emblem_base', 'in_badge_base'].forEach(id => {
+                totalAccBase += getNum(id);
+            });
+            totalAccBase += parseFloat(inputs.in_heart_select.value) || 0;
+
+            // 錬金効果 (Alchemy) の合計を算出
+            let totalAlch = 0;
+            ['in_neck_alch', 'in_finger_alch', 'in_chest_alch', 'in_belt_alch', 'in_card_alch', 'in_other_alch', 'in_emblem_alch', 'in_badge_alch', 'in_heart_alch'].forEach(id => {
+                totalAlch += getNum(id);
+            });
+            totalAlch += getNum('in_set_alch');
+            totalAlch += getNum('in_skill_alch');
+            totalAlch += getNum('in_skill_170'); 
+
+            // 表示用合計値更新
+            inputs.txtStrTotal.innerText = totalStrBase;
+            // 装備合計は「武器右＋アクセ基礎＋アクセ錬金」を表示用とする
+            let dispEquip = getNum('in_wepR_base') + getNum('in_wepR_alch') + totalAccBase + totalAlch; 
+            inputs.txtEquipTotal.innerText = dispEquip;
+
+            // --- Raw Stats (Pre-Baiki) ---
+            // Formula A needs this (Display Attack without Baiki)
+            let rightBaseNoStr = totalAccBase + getNum('in_wepR_base');
+            let rawRightAtk = totalStrBase + rightBaseNoStr + getNum('in_wepR_alch') + totalAlch;
+
+            let leftStr = Math.floor(totalStrBase * 0.75);
+            let leftBaseNoStr = totalAccBase + getNum('in_wepL_base');
+            let rawLeftAtk = leftStr + leftBaseNoStr + getNum('in_wepL_alch') + totalAlch;
+
+            // --- Effective Stats (With Baiki) ---
+            // Formula B needs this
+            let atkR = 0;
+            if (inputs.btnBaiki.classList.contains('active')) {
+                // バイキ: 基礎 x 1.4 + 錬金
+                let rb = totalStrBase + rightBaseNoStr;
+                let ra = getNum('in_wepR_alch') + totalAlch;
+                atkR = Math.floor(rb * 1.4) + ra;
+            } else {
+                atkR = rawRightAtk;
+            }
+
+            let atkL = 0;
+            if (inputs.btnBaiki.classList.contains('active')) {
+                // バイキ: 基礎 x 1.4 + 錬金
+                let lb = leftStr + leftBaseNoStr;
+                let la = getNum('in_wepL_alch') + totalAlch;
+                atkL = Math.floor(lb * 1.4) + la;
+            } else {
+                atkL = rawLeftAtk;
+            }
+
+            inputs.displayAtkR.innerText = atkR;
+            inputs.displayAtkL.innerText = atkL;
+
+            let bossBaseDef = parseFloat(inputs.calcBoss.value) || 0;
+            let finalDef = Math.floor(bossBaseDef * lukaniRate);
+            inputs.displayDef.innerText = finalDef;
+
+            currentHitBases = [];
+            currentHitMinBases = [];
+            currentHitMaxBases = [];
+            
+            currentHitCritBases = [];
+            currentHitCritMinBases = [];
+            currentHitCritMaxBases = [];
+            
+            currentHitCritMults = []; 
+            currentHitIsLeft = []; 
+            currentHitCritTypes = []; 
+            currentHitCritInfo = []; // Clear detailed info
+            let totalBaseDmg = 0;
+
+            if (!skillData) return;
+
+            // Crit Calculation Logic
+            // Returns: { val: DamageVal, type: 'A'|'B', valA, valB, baseA, baseB }
+            const calcCritBase = (rawAtk, effAtk, hitMult, isLeft, skillData) => {
+                // Orb Factor (Skill only)
+                let orbVal = (skillData.isNormal) ? 0 : (skillData.orb || 0);
+                let orbFactor = 1.0 + (orbVal / 100.0);
+
+                // Formula A: RawAtk (Display Atk without Baiki) * Min(Mult, 1.0) * Orb
+                // ※修正: 「はやぶさ/ツメ通常」の場合は、0.7倍撃部分も式Aでは1.0倍として計算する
+                let multA = hitMult;
+                if ((skillData.name.includes('隼') || skillData.name.includes('ツメ')) && skillData.isNormal) {
+                     multA = 1.0;
+                } else {
+                     // 通常の上限1.0処理
+                     if (multA > 1.0) multA = 1.0;
+                }
+
+                let valA = rawAtk * multA * orbFactor;
+
+                // Formula B: Base(from EffAtk) * 1.2 * Mult * Orb * (Left? 2.15)
+                let baseComp = (effAtk / 2) - (finalDef / 4);
+                if (baseComp < 1) baseComp = 1;
+                
+                let leftFactor = isLeft ? 2.15 : 1.0;
+                let valB = baseComp * 1.2 * hitMult * orbFactor * leftFactor;
+
+                // Determine winner
+                let finalVal = (valA >= valB) ? valA : valB;
+                let type = (valA >= valB) ? 'A' : 'B';
+
+                return { 
+                    val: finalVal, type: type,
+                    valA: valA, baseA: rawAtk, multA: multA, orb: orbFactor,
+                    valB: valB, baseB: Math.floor(baseComp), multB: hitMult, left: leftFactor
+                };
+            };
+
+            // Helper to generate Min/Max base from Center base
+            // Modified: Crit Random Range 95% - 105%
+            const addHitData = (base, critBaseVal, critType, critInfoObj, critMult, isLeft = false) => {
+                // Normal (Round)
+                let minB = Math.round(base * 0.9375) - 1;
+                let maxB = Math.round(base * 1.0625) + 1;
+                if(minB < 1) minB = 1;
+                if(maxB < 1) maxB = 1;
+                
+                // Crit (New Random: 95% - 105%)
+                let minC = Math.floor(critBaseVal * 0.95);
+                let maxC = Math.floor(critBaseVal * 1.05);
+                if(minC < 1) minC = 1;
+                if(maxC < 1) maxC = 1;
+
+                currentHitBases.push(base);
+                currentHitMinBases.push(minB);
+                currentHitMaxBases.push(maxB);
+                
+                currentHitCritBases.push(critBaseVal);
+                currentHitCritMinBases.push(minC);
+                currentHitCritMaxBases.push(maxC);
+                
+                currentHitCritMults.push(critMult);
+                currentHitIsLeft.push(isLeft);
+                currentHitCritTypes.push(critType);
+                currentHitCritInfo.push(critInfoObj);
+                totalBaseDmg += base;
+            };
+
+            const addFixedHitData = (val, width, critMult) => {
+                let center = val; 
+                let minB = val - width;
+                let maxB = val + width;
+
+                // 会心時基礎: 通常の1.4倍 (切り捨て) + Random 95-105%
+                let critCenter = Math.floor(center * 1.4);
+                let critMin = Math.floor(critCenter * 0.95);
+                let critMax = Math.floor(critCenter * 1.05);
+                
+                currentHitBases.push(center);
+                currentHitMinBases.push(minB);
+                currentHitMaxBases.push(maxB);
+                
+                currentHitCritBases.push(critCenter);
+                currentHitCritMinBases.push(critMin);
+                currentHitCritMaxBases.push(critMax);
+                
+                currentHitCritMults.push(critMult); 
+                currentHitIsLeft.push(false);
+                currentHitCritTypes.push('固定1.4');
+                currentHitCritInfo.push({ val: critCenter, type: '固定1.4', baseA: center });
+                totalBaseDmg += center;
+            };
+
+            // Generate Hit Data
+            if(skillData.type === 'fixed') {
+                let fixedVal = skillData.val;
+                let w = skillData.width || 0;
+                let fixCritMult = (skillData.crit !== undefined) ? skillData.crit : 0; 
+                
+                for(let i=0; i<skillData.hits; i++){
+                    addFixedHitData(fixedVal, w, fixCritMult);
+                }
+            } else {
+                // Weapon Skill Logic
+                const processHit = (rawAtkVal, effAtkVal, critMultiplier, hitMult, isLeft) => {
+                    // Normal Damage
+                    let base = (effAtkVal / 2) - (finalDef / 4);
+                    if (base < 1) base = 1;
+                    
+                    let dmg = base * hitMult;
+                    if(skillData.add) dmg += skillData.add;
+                    
+                    // Critical Damage Comparison
+                    let cRes = calcCritBase(rawAtkVal, effAtkVal, hitMult, isLeft, skillData);
+                    let cDmg = cRes.val;
+                    if(skillData.add) cDmg += skillData.add;
+
+                    // Pass full info object
+                    addHitData(dmg, cDmg, cRes.type, cRes, critMultiplier, isLeft);
+                };
+
+                let mainCritMult = (skillData.crit !== undefined) ? skillData.crit : 1.0;
+                let mainHits = skillData.hits || 1;
+                
+                if(skillData.name.includes('隼') || skillData.name.includes('バト通常')) {
+                    if(skillData.hits && Array.isArray(skillData.hits)){
+                        skillData.hits.forEach(h => {
+                           let useRaw = (h.t === 'L') ? rawLeftAtk : rawRightAtk;
+                           let useEff = (h.t === 'L') ? atkL : atkR;
+                           let isL = (h.t === 'L');
+                           
+                           processHit(useRaw, useEff, mainCritMult, h.m, isL);
+                        });
+                    }
+                } else {
+                    // Standard multi-hit weapon skill
+                    let skillMult = skillData.mult || 1.0;
+                    for(let i=0; i<mainHits; i++) {
+                        processHit(rawRightAtk, atkR, mainCritMult, skillMult, false);
+                    }
+                    
+                    // Left Hand Chaser for Bato Skills
+                    if(skillData.batoLeft) {
+                        processHit(rawLeftAtk, atkL, 0, skillMult, true); // CritMult 0 for left skill chaser
+                    }
+                }
+            }
+
+            inputs.base.value = Math.floor(totalBaseDmg);
+            inputs.baseValDisplay.innerText = Math.floor(totalBaseDmg).toLocaleString();
+            calculate();
+        }
+
+        function toggleBaiki(btn) {
+            btn.classList.toggle('active');
+            btn.innerText = btn.classList.contains('active') ? "ON" : "OFF";
+            calcBaseDamage();
+        }
+
+        function setLukani(btn) {
+            btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            lukaniRate = parseFloat(btn.dataset.lukani);
+            calcBaseDamage();
+        }
+
+        function toggleBtn(btn) {
+            const isNowActive = !btn.classList.contains('active'); 
+            const exclusiveGroup = btn.dataset.exclusive; 
+            if (exclusiveGroup && isNowActive) {
+                document.querySelectorAll(`button[data-exclusive="${exclusiveGroup}"]`).forEach(b => {
+                    b.classList.remove('active');
+                });
+            }
+            if (isNowActive) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+            calculate();
+        }
+
+        function getBeamColor(value, max) {
+            let ratio = Math.min(value / max, 1.3); 
+            let hue = 210 - (ratio * 210);
+            let saturation = 90;
+            let lightness = 60;
+            if (hue < 0) {
+                hue = 360 + hue; 
+                saturation = 100;
+                lightness = 70;
+            }
+            return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+        }
+
+        function calculate() {
+            const sKey = inputs.calcSkillSelect.value;
+            const skillData = skills[sKey];
+            
+            // --- Multipliers ---
+            let attrMag = 1.0;
+            let mergedAdd = 0.0;
+            
+            if(skillData.type !== 'fixed') {
+                attrMag += parseFloat(inputs.attrBelt.value) 
+                        + parseFloat(inputs.attrRing.value)
+                        + parseFloat(inputs.attrHeart.value)
+                        + parseFloat(inputs.attrWepBase.value);
+                
+                mergedAdd += parseFloat(inputs.raceBelt.value);
+                mergedAdd += parseFloat(inputs.raceRing.value);
+                mergedAdd += parseFloat(inputs.raceWepBase.value);
+            }
+            
+            mergedAdd += parseFloat(inputs.classBonus.value);
+            if(inputs.btnForceNorm.classList.contains('active')) mergedAdd += 0.1;
+
+            document.querySelectorAll('.group-dmg.active, .group-mr.active').forEach(btn => {
+                mergedAdd += parseFloat(btn.dataset.val);
+            });
+
+            // Orb
+            let orbVal = (skillData && skillData.orb) ? (skillData.orb/100) : 0;
+            mergedAdd += orbVal;
+
+            const orbBadge = document.getElementById('orbBadge');
+            if(orbVal > 0){
+                orbBadge.innerText = `💎宝珠 +${skillData.orb}%`;
+                orbBadge.classList.add('active');
+            } else {
+                orbBadge.innerText = `💎宝珠 0%`;
+                orbBadge.classList.remove('active');
+            }
+
+            let mergedMag = 1.0 + mergedAdd;
+
+            let takenAdd = 0;
+            document.querySelectorAll('.group-taken.active').forEach(btn => {
+                takenAdd += parseFloat(btn.dataset.val);
+            });
+            let takenMag = 1.0 + takenAdd;
+
+            let fbAdd = 0;
+            document.querySelectorAll('.group-fb.active, .group-down.active').forEach(btn => {
+                fbAdd += parseFloat(btn.dataset.val);
+            });
+            let fbMag = 1.0 + fbAdd;
+            
+            // --- Add Damage Logic ---
+            let jobKey = inputs.calcJob.value;
+            let wepKey = inputs.calcWeapon.value;
+            let wepType = (weapons[wepKey]) ? weapons[wepKey].type : '';
+            
+            let skillAdd = parseInt(inputs.skillAddDmg.value) || 0; 
+            
+            // Job Specific Add
+            let jobAddDmg = 0;
+            let jobAddCrit = 85; 
+            let isTokugi = !skillData.isNormal; 
+
+            if(jobKey === 'bato' && wepType === 'sword') {
+                if(isTokugi) jobAddDmg += 20;
+                jobAddCrit += 50; 
+            }
+            if(jobKey === 'dougu' && wepType === 'spear' && isTokugi) {
+                jobAddDmg += 50;
+            }
+            if(jobKey === 'gad' && wepType === 'spear' && isTokugi) {
+                jobAddDmg += 40;
+            }
+            
+            let finalAddNorm = (isTokugi ? skillAdd : 0) + jobAddDmg;
+            let finalAddCrit = finalAddNorm + jobAddCrit;
+
+            // --- Calculation Loop ---
+            let expectedTotal = 0; 
+            let hitDetails = []; 
+
+            // Beams Sums (Cumulative)
+            let sumD1=0, sumD2=0, sumD3=0, sumD4=0, sumD5=0;
+            let sumRaw = 0;
+
+            let dmgCap = (skillData.cap) ? skillData.cap : 9999;
+
+            let rawCritRate = parseFloat(inputs.critRate.value) || 0;
+            if(inputs.btnCritBuff.classList.contains('active')) rawCritRate += 15.0;
+            const btnGadget = document.getElementById('btnGadget');
+            if (btnGadget && btnGadget.classList.contains('active')) rawCritRate += 10.0;
+
+            let dispText = `基準率: ${rawCritRate.toFixed(2)}%`;
+            if (skillData.crit !== 1.0 && skillData.crit !== undefined) dispText += ` (基本補正 x${skillData.crit})`;
+            document.getElementById('critDisplay').innerText = dispText;
+
+            // Process Hits
+            for(let i=0; i<currentHitBases.length; i++) {
+                let baseMin = currentHitMinBases[i];
+                let baseMed = currentHitBases[i];
+                let baseMax = currentHitMaxBases[i];
+                
+                let critBaseMin = currentHitCritMinBases[i];
+                let critBaseMed = currentHitCritBases[i];
+                let critBaseMax = currentHitCritMaxBases[i];
+                
+                let hitCritMult = (currentHitCritMults[i] !== undefined) ? currentHitCritMults[i] : 1.0;
+                let isLeft = (currentHitIsLeft[i] !== undefined) ? currentHitIsLeft[i] : false;
+                let cType = (currentHitCritTypes[i]) ? currentHitCritTypes[i] : '';
+                
+                let cInfo = currentHitCritInfo[i] || {};
+
+                // Function to apply multipliers
+                const calcStep = (val, isCrit) => {
+                    let v = Math.floor(val);
+                    let v2, v3, v4, v5;
+
+                    v2 = Math.floor(v * attrMag);
+                    v3 = Math.floor(v2 * mergedMag); 
+                    v4 = Math.floor(v3 * takenMag); 
+                    v5 = Math.floor(v4 * fbMag);
+                    
+                    return v5 + (isCrit ? finalAddCrit : finalAddNorm);
+                };
+
+                // For Beam Visualization
+                let b_v1 = Math.floor(baseMed);
+                let b_v2 = Math.floor(b_v1 * attrMag);
+                let b_v3 = Math.floor(b_v2 * mergedMag);
+                let b_v4 = Math.floor(b_v3 * takenMag);
+                let b_v5 = Math.floor(b_v4 * fbMag) + finalAddNorm;
+                
+                sumD1 += b_v1; sumD2 += b_v2; sumD3 += b_v3; sumD4 += b_v4; sumD5 += b_v5;
+
+                // 1. Normal Damage Range
+                let n_min_raw = calcStep(baseMin, false);
+                let n_med_raw = calcStep(baseMed, false);
+                let n_max_raw = calcStep(baseMax, false);
+                let n_med_cap = (n_med_raw > dmgCap) ? dmgCap : n_med_raw;
+                
+                // 2. Crit Damage Range
+                let c_min_raw = calcStep(critBaseMin, true);
+                let c_med_raw = calcStep(critBaseMed, true);
+                let c_max_raw = calcStep(critBaseMax, true);
+                let c_med_cap = (c_med_raw > dmgCap) ? dmgCap : c_med_raw;
+
+                // 3. Expected Value
+                let effectiveCritRate = rawCritRate * hitCritMult;
+                if(effectiveCritRate > 100) effectiveCritRate = 100;
+                if(effectiveCritRate < 0) effectiveCritRate = 0;
+                let cRate = effectiveCritRate / 100.0;
+
+                let exp = (n_med_cap * (1.0 - cRate)) + (c_med_cap * cRate);
+                expectedTotal += Math.floor(exp);
+                sumRaw += n_med_raw; 
+
+                // Process Info for display (calc crit A/B final values)
+                let cFinalA = 0;
+                let cFinalB = 0;
+                if (cInfo.valA) cFinalA = calcStep(cInfo.valA, true);
+                if (cInfo.valB) cFinalB = calcStep(cInfo.valB, true);
+
+                // Store detail
+                hitDetails.push({
+                    idx: i+1,
+                    base_med: Math.floor(baseMed), 
+                    n_min: n_min_raw, n_med: n_med_raw, n_max: n_max_raw,
+                    c_min: c_min_raw, c_med: c_med_raw, c_max: c_max_raw,
+                    cap: dmgCap,
+                    is_left: isLeft,
+                    c_type: cType,
+                    crit_info: cInfo,
+                    c_final_a: cFinalA,
+                    c_final_b: cFinalB
+                });
+            }
+            
+            // Expected Value Display
+            const finalEl = document.getElementById('finalResult');
+            finalEl.innerText = expectedTotal.toLocaleString();
+            
+            // Update Floating Popup
+            document.getElementById('wipeResult').innerText = expectedTotal.toLocaleString();
+
+            let pureMult = attrMag * mergedMag * takenMag * fbMag;
+            document.getElementById('totalMult').innerText = `x ${pureMult.toFixed(2)} 倍 (期待値)`;
+
+            // Beams
+            const maxRef = 50000; 
+            const values = [sumD1, sumD2, sumD3, sumD4, sumD5];
+            for (let i = 0; i < 5; i++) {
+                if (beams[i]) {
+                    let val = values[i];
+                    let widthRatio = Math.sqrt(val) / Math.sqrt(maxRef);
+                    let width = Math.max(BASE_WIDTH_PX, Math.min(widthRatio * MAX_WIDTH_PX * 2.2, MAX_WIDTH_PX));
+                    let color = getBeamColor(val, maxRef);
+                    beams[i].style.width = width + "px";
+                    beams[i].style.backgroundColor = color;
+                    beams[i].style.boxShadow = `0 0 ${10 + width/4}px ${color}`;
+                }
+                if (resultLabels[i]) {
+                    let desc = "";
+                    if(i===1) desc = `×属性(x${attrMag.toFixed(2)})`;
+                    if(i===2) desc = `×強化合計(x${mergedMag.toFixed(2)})`;
+                    if(i===3) desc = `×被ダメ増(x${takenMag.toFixed(1)})`;
+                    if(i===4) desc = `×耐性低下(x${fbMag.toFixed(1)})`;
+                    let v = values[i]; 
+                    resultLabels[i].innerHTML = `${v.toLocaleString()}<small>${desc}</small>`;
+                }
+            }
+
+            // Pack Multipliers
+            const calcDebugInfo = {
+                attr: attrMag,
+                race: mergedMag,
+                taken: takenMag,
+                fb: fbMag,
+                add: finalAddNorm
+            };
+
+            renderDetail(hitDetails, skillData, calcDebugInfo);
+            updateDiff(expectedTotal);
+        }
+
+        function renderDetail(details, skillData, mults) {
+            const container = document.getElementById('randomDetail');
+            
+            let groups = [];
+            if(details.length > 0) {
+                let current = details[0];
+                let count = 1;
+                for(let i=1; i<details.length; i++) {
+                    let d = details[i];
+                    // Group if all stats match
+                    if(d.n_med === current.n_med && d.n_min === current.n_min && d.n_max === current.n_max && 
+                       d.c_med === current.c_med && d.base_med === current.base_med && 
+                       d.is_left === current.is_left && d.c_type === current.c_type) {
+                        count++;
+                    } else {
+                        groups.push({data: current, count: count});
+                        current = d;
+                        count = 1;
+                    }
+                }
+                groups.push({data: current, count: count});
+            }
+
+            let html = '';
+            groups.forEach((g, i) => {
+                let d = g.data;
+                
+                let handLabel = d.is_left ? `<span class="hand-tag hand-l">(左手)</span>` : "";
+                let typeLabel = d.c_type ? `<span class="c-type">(${d.c_type})</span>` : "";
+
+                let title = `Hit ${i+1}${handLabel}`;
+                if(g.count > 1) title += ` ～ ${i+g.count} (x${g.count}回)`;
+                
+                let nStyle = (d.n_max > d.cap) ? "color:#ff00ff;" : "";
+                let cStyle = (d.c_max > d.cap) ? "color:#ff00ff;" : "color:#ff2a6d;";
+
+                let baseLabel = d.is_left ? "基礎(左)" : "基礎";
+                let processStr = "";
+                if (mults) {
+                    processStr = 
+                        `<span class="process-tag">[計算式]</span>` +
+                        `${baseLabel}${d.base_med} ` +
+                        `× 属${mults.attr.toFixed(2)} ` +
+                        `× 枠${mults.race.toFixed(2)} ` +
+                        `× 被${mults.taken.toFixed(2)} ` +
+                        `× FB${mults.fb.toFixed(1)} ` +
+                        `+ 加${mults.add} ` +
+                        `= ${d.n_med}`;
+                    
+                    // Show Crit Compare with Full Details
+                    if (d.crit_info && d.c_type !== '固定1.4') {
+                        let ci = d.crit_info;
+                        let rowAClass = (d.c_type === 'A') ? "crit-row selected" : "crit-row";
+                        let rowBClass = (d.c_type === 'B') ? "crit-row selected" : "crit-row";
+                        let markA = (d.c_type === 'A') ? '<span style="color:#ff2a6d;">(採用)</span>' : '';
+                        let markB = (d.c_type === 'B') ? '<span style="color:#ff2a6d;">(採用)</span>' : '';
+
+                        let leftInfo = ci.left > 1.0 ? `× 左${ci.left.toFixed(2)} ` : '';
+
+                        processStr += `
+                        <div class="crit-compare-block">
+                            <div class="${rowAClass}">
+                                <span class="crit-tag">式A</span> 
+                                <span class="crit-detail">攻(非)${ci.baseA} × 特${ci.multA.toFixed(2)} × 珠${ci.orb.toFixed(2)} = 基礎${Math.floor(ci.valA).toLocaleString()}</span>
+                                <span class="crit-arrow">→</span>
+                                <span class="crit-result-part">最終${d.c_final_a.toLocaleString()} ${markA}</span>
+                            </div>
+                            <div class="${rowBClass}">
+                                <span class="crit-tag">式B</span> 
+                                <span class="crit-detail">基(通)${ci.baseB} × 1.2 × 特${ci.multB.toFixed(2)} × 珠${ci.orb.toFixed(2)} ${leftInfo}= 基礎${Math.floor(ci.valB).toLocaleString()}</span>
+                                <span class="crit-arrow">→</span>
+                                <span class="crit-result-part">最終${d.c_final_b.toLocaleString()} ${markB}</span>
+                            </div>
+                        </div>
+                        `;
+                    } else if (d.c_type === '固定1.4') {
+                        processStr += `<br><span class="process-tag" style="color:#ff2a6d;">[会心固定]</span>` +
+                        `基礎${d.crit_info.baseA} ` +
+                        `× 1.4`;
+                    }
+                }
+
+                html += `
+                <div class="hit-row">
+                    <div class="hit-header">${title}</div>
+                    <div class="hit-vals">
+                        <span class="v-label">通常:</span>
+                        <span class="v-num" style="${nStyle}">${d.n_min.toLocaleString()} ~ ${d.n_max.toLocaleString()} <small>(${d.n_med.toLocaleString()})</small></span>
+                        <span class="v-label">会心${typeLabel}:</span>
+                        <span class="v-num" style="${cStyle} font-weight:bold;">${d.c_min.toLocaleString()} ~ ${d.c_max.toLocaleString()} <small>(${d.c_med.toLocaleString()})</small></span>
+                    </div>
+                    <div class="process-info">${processStr}</div>
+                </div>`;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        document.querySelectorAll('input, select').forEach(el => {
+            if(!el.id.startsWith('calc')) {
+                el.addEventListener('input', calculate);
+            }
+        });
+
+        document.getElementById('detailStats').querySelectorAll('input, select').forEach(el => {
+            el.addEventListener('input', calcBaseDamage);
+        });
+        document.getElementById('critRate').addEventListener('input', calculate);
+
+        function saveSnapshot() {
+            const current = parseInt(document.getElementById('finalResult').innerText.replace(/,/g, ''));
+            snapshotDamage = current;
+            document.getElementById('diffDisplay').style.display = "block";
+            document.getElementById('snapshotVal').innerText = current.toLocaleString();
+            updateDiff(current);
+        }
+
+        function updateDiff(currentVal) {
+            if (snapshotDamage === null) return;
+            const diff = currentVal - snapshotDamage;
+            const diffEl = document.getElementById('diffVal');
+            
+            if (diff > 0) {
+                diffEl.innerText = `▲ ${diff.toLocaleString()} UP!`;
+                diffEl.className = "diff-plus";
+            } else if (diff < 0) {
+                diffEl.innerText = `▼ ${diff.toLocaleString()} DOWN`;
+                diffEl.className = "diff-minus";
+            } else {
+                diffEl.innerText = "±0";
+                diffEl.className = "diff-even";
+            }
+        }
+
+        init();
+
+    </script>
+</body>
+</html>

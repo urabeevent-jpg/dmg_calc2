@@ -1480,16 +1480,14 @@
             let attrMag = 1.0;
             let mergedAdd = 0.0;
             
-            if(skillData.type !== 'fixed') {
-                attrMag += parseFloat(inputs.attrBelt.value) 
-                        + parseFloat(inputs.attrRing.value)
-                        + parseFloat(inputs.attrHeart.value)
-                        + parseFloat(inputs.attrWepBase.value);
-                
-                mergedAdd += parseFloat(inputs.raceBelt.value);
-                mergedAdd += parseFloat(inputs.raceRing.value);
-                mergedAdd += parseFloat(inputs.raceWepBase.value);
-            }
+            attrMag += parseFloat(inputs.attrBelt.value) 
+                    + parseFloat(inputs.attrRing.value)
+                    + parseFloat(inputs.attrHeart.value)
+                    + parseFloat(inputs.attrWepBase.value);
+            
+            mergedAdd += parseFloat(inputs.raceBelt.value);
+            mergedAdd += parseFloat(inputs.raceRing.value);
+            mergedAdd += parseFloat(inputs.raceWepBase.value);
             
             mergedAdd += parseFloat(inputs.classBonus.value);
             if(inputs.btnForceNorm.classList.contains('active')) mergedAdd += 0.1;
@@ -1865,4 +1863,5 @@
     </script>
 </body>
 </html>
+
 

@@ -859,8 +859,8 @@
         };
 
         const weapons = {
-            'shugoryu': { name: '守護竜のつるぎ', atk: 284, type: 'sword' },
             'hayabusa': { name: 'はやぶさの剣改', atk: 129, type: 'sword' },
+            'shugoryu': { name: '守護竜のつるぎ', atk: 284, type: 'sword' },
             'jusei': { name: '呪星のツメ', atk: 180, type: 'claw' },
             'nymph': { name: 'ニンフの妖弓', atk: 325, type: 'bow' },
             'papilsag': { name: 'パピルサグの弓', atk: 295, type: 'bow', attrVal: 0.05 },
@@ -1141,9 +1141,9 @@
 
             // Bato logic
             if (jobKey === 'bato') {
-                availSkills.push('tenka', 'kokon', 'rush');
                 if (wepKey === 'hayabusa') availSkills.push('haya_bato_norm');
                 else availSkills.push('bato_norm');
+                availSkills.push('tenka', 'kokon', 'rush');
             }
             else if (wepKey === 'hayabusa') availSkills.push('haya_norm');
 
@@ -1865,5 +1865,3 @@
     </script>
 </body>
 </html>
-
-

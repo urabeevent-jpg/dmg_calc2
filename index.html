@@ -202,6 +202,32 @@
             padding: 5px; border-radius: 4px; border: none; 
             background: #2a2a35; color: #fff; cursor: pointer; font-size: 0.9rem;
         }
+
+        /* 属性耐性エリア用の追加スタイル */
+        .input-item.item-full {
+            width: 100%;
+            margin-bottom: 8px;
+            border-bottom: 1px dashed #444;
+            padding-bottom: 8px;
+        }
+
+        .resist-header {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 4px;
+        }
+
+        .resist-val {
+            color: #05d9e8;
+            font-weight: bold;
+        }
+
+        select.select-full {
+            width: 100%;
+            background: #252f3f;
+            font-weight: bold;
+        }
         
         /* 設定パネル */
         .settings-grid {
@@ -355,9 +381,7 @@
                     </div>
                     <div class="settings-item">
                         <span>敵守備力</span>
-                        <select id="calcBoss" onchange="calcBaseDamage()">
-                            <option value="760">ヤヌビ (760)</option>
-                            <option value="830">バオラ (830)</option>
+                        <select id="calcBoss" onchange="onBossChange()">
                         </select>
                     </div>
                     
@@ -676,7 +700,21 @@
 
         <div class="step-section">
             <div class="step-left">
-                <div class="step-label"><span class="step-icon">🛡️</span> 敵の属性耐性低下</div>
+                <div class="step-label"><span class="step-icon">🛡️</span> 敵の属性耐性低下</div> 
+                    <div class="input-item item-full">
+                        <div class="resist-header">
+                            <span>攻撃属性 (ボスの耐性)</span>
+                        </div>
+                        <select id="attackElement" class="select-full" onchange="calculate()">
+                            <option value="fire">炎属性</option>
+                            <option value="ice">氷属性</option>
+                            <option value="wind">風属性</option>
+                            <option value="thunder">雷属性</option>
+                            <option value="earth">土属性</option>
+                            <option value="light" selected>光属性</option>
+                            <option value="dark">闇属性</option>
+                        </select>
+                    </div>
                 <div class="step-controls toggle-group">
                     <button class="toggle-btn group-fb" data-val="1.0" data-exclusive="fb" onclick="toggleBtn(this)">FB(大)</button>
                     <button class="toggle-btn group-fb" data-val="0.5" data-exclusive="fb" onclick="toggleBtn(this)">FB(小)</button>
@@ -731,13 +769,38 @@
         let currentHitCritTypes = []; 
         let currentHitCritInfo = []; 
 
+        //　ボス設定
+        const bosses = {
+            'yanubi': { 
+                name: 'ヤヌビ', 
+                def: 760, 
+                resist: { fire: 1.00, ice: 1.00, wind: 1.00, thunder: 1.00, earth: 1.00, light: 1.00, dark: 1.00 }
+            },
+            'baora': { 
+                name: 'バオラ', 
+                def: 830, 
+                resist: { fire: 0.90, ice: 1.10, wind: 0.90, thunder: 1.00, earth: 1.00, light: 1.00, dark: 1.00 }
+            }
+        };
+
+        // 属性名の日本語定義
+        const attrNames = {
+            'fire': '炎属性',
+            'ice': '氷属性',
+            'wind': '風属性',
+            'thunder': '雷属性',
+            'earth': '土属性',
+            'light': '光属性',
+            'dark': '闇属性'
+        };
+
         const jobs = {
-            'bato': { name: 'バトマス', base: 419, passive: 90, weapons: ['shugoryu', 'hayabusa'] },
-            'masen': { name: '魔法戦士', base: 317, passive: 80, weapons: ['nymph', 'papilsag', 'furumu', 'shugoryu', 'hayabusa'] },
-            'ranger': { name: 'レンジャー', base: 311, passive: 80, weapons: ['jusei', 'sailas', 'nymph', 'papilsag', 'furumu'] },
-            'dougu': { name: 'どうぐ使い', base: 313, passive: 80, weapons: ['spear', 'nymph', 'papilsag', 'furumu'] },
-            'gad': { name: 'ガーディアン', base: 342, passive: 100, weapons: ['spear', 'shugoryu', 'hayabusa'] },
-            'odori': { name: '踊り子', base: 324, passive: 100, weapons: ['meigunshi'] }
+            'bato': { name: 'バトマス', base: 419, passive: 90, types: ['sword'] },
+            'masen': { name: '魔法戦士', base: 317, passive: 80, types: ['bow', 'sword'] },
+            'ranger': { name: 'レンジャー', base: 311, passive: 80, types: ['claw', 'boomerang', 'bow'] },
+            'dougu': { name: 'どうぐ使い', base: 313, passive: 80, types: ['spear', 'bow'] },
+            'gad': { name: 'ガーディアン', base: 342, passive: 100, types: ['spear', 'sword'] },
+            'odori': { name: '踊り子', base: 324, passive: 100, types: ['fan'] }
         };
 
         const weapons = {
@@ -882,8 +945,47 @@
                 opt.text = jobs[key].name;
                 inputs.calcJob.appendChild(opt);
             }
+
+            // ボス選択肢の生成
+            inputs.calcBoss.innerHTML = '';
+            for(let key in bosses) {
+                let b = bosses[key];
+                let opt = document.createElement('option');
+                opt.value = key;
+                // 表示名に守備力を含める
+                opt.text = `${b.name} (守${b.def})`;
+                inputs.calcBoss.appendChild(opt);
+            }
+
             updateOptions();
             setupObserver();
+            onBossChange();
+        }
+
+        // ボス変更時の処理まとめ
+        function onBossChange() {
+            updateResistOptions(); // 属性プルダウンの表示を更新
+            calcBaseDamage();      // ダメージ再計算
+        }
+
+        // 属性プルダウンの表示テキストを更新する関数
+        function updateResistOptions() {
+            const bossKey = document.getElementById('calcBoss').value;
+            const boss = bosses[bossKey];
+            const select = document.getElementById('attackElement');
+            
+            if (!boss) return;
+
+            // プルダウン内の各オプションを書き換え
+            Array.from(select.options).forEach(opt => {
+                const type = opt.value; // fire, ice, ...
+                const val = boss.resist[type];
+                
+                // 定義があれば「属性名 数値倍」の形式にする
+                if (val !== undefined && attrNames[type]) {
+                    opt.text = `${attrNames[type]} ${val.toFixed(2)}倍`;
+                }
+            });
         }
 
         function setupObserver() {
@@ -924,15 +1026,24 @@
             inputs.in_job_base.value = jobs[jobKey].base;
             inputs.in_job_passive.value = jobs[jobKey].passive;
 
+            // 武器種(types)に一致する武器を全武器から抽出してリスト化
             inputs.calcWeapon.innerHTML = '';
-            jobs[jobKey].weapons.forEach(wKey => {
+            const allowedTypes = jobs[jobKey].types || [];
+
+            // weaponsオブジェクト内の全武器を走査
+            for (let wKey in weapons) {
                 let w = weapons[wKey];
-                let opt = document.createElement('option');
-                opt.value = wKey;
-                opt.text = `${w.name} (攻${w.atk})`;
-                inputs.calcWeapon.appendChild(opt);
-            });
-            if (jobs[jobKey].weapons.includes(currentWep)) {
+                // その武器のtypeが、現在の職業の許可リストに含まれているか？
+                if (allowedTypes.includes(w.type)) {
+                    let opt = document.createElement('option');
+                    opt.value = wKey;
+                    opt.text = `${w.name} (攻${w.atk})`;
+                    inputs.calcWeapon.appendChild(opt);
+                }
+            }
+
+            // 以前選択していた武器が新しいリストにもあれば維持、なければ先頭を選択
+            if (weapons[currentWep] && allowedTypes.includes(weapons[currentWep].type)) {
                 inputs.calcWeapon.value = currentWep;
             }
             
@@ -943,7 +1054,7 @@
             }
             
             // Auto Set Skill 150
-            const wepType = weapons[inputs.calcWeapon.value].type;
+            const wepType = (wData) ? wData.type : 'sword'; // 安全策
             let s150 = 0;
             if(wepType === 'sword') s150 = 40;
             else if(wepType === 'bow') s150 = 40;
@@ -1094,7 +1205,9 @@
             inputs.displayAtkR.innerText = atkR;
             inputs.displayAtkL.innerText = atkL;
 
-            let bossBaseDef = parseFloat(inputs.calcBoss.value) || 0;
+            let bossKey = inputs.calcBoss.value;
+            let bossData = bosses[bossKey];
+            let bossBaseDef = (bossData) ? bossData.def : 760;
             let finalDef = Math.floor(bossBaseDef * lukaniRate);
             inputs.displayDef.innerText = finalDef;
 
@@ -1355,7 +1468,20 @@
             document.querySelectorAll('.group-fb.active, .group-down.active').forEach(btn => {
                 fbAdd += parseFloat(btn.dataset.val);
             });
-            let fbMag = 1.0 + fbAdd;
+
+            // ボス属性耐性
+            const currentBossKey = document.getElementById('calcBoss').value;
+            const currentElement = document.getElementById('attackElement').value;
+            
+            let baseResist = 1.0;
+            // bossDataが存在し、かつresist定義があるか確認
+            if (bosses[currentBossKey] && bosses[currentBossKey].resist) {
+                baseResist = bosses[currentBossKey].resist[currentElement];
+            }
+            
+            //document.getElementById('bossResistDisplay').innerText = `${baseResist.toFixed(2)}倍`;
+
+            let fbMag = baseResist + fbAdd;
             
             // --- Add Damage Logic ---
             let jobKey = inputs.calcJob.value;

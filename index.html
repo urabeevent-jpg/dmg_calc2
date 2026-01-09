@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DQX ダメージ計算機 v65 (Single Line Crit Detail)</title>
+    <title>DQX 防衛用ダメージ計算機</title>
     <style>
         body {
             font-family: "Helvetica Neue", Arial, sans-serif;
@@ -88,7 +88,7 @@
             box-shadow: 0 0 20px rgba(255, 42, 109, 0.2);
         }
 
-        .total-multiplier { font-size: 0.9rem; color: #ff9f1c; font-weight: bold; margin-bottom: 5px; grid-column: 1 / -1; }
+        .total-multiplier { font-size: 1.5rem; color: #ff9f1c; font-weight: bold; margin-bottom: 5px; grid-column: 1 / -1; }
         
         .final-damage { font-size: 4rem; font-weight: bold; color: #00ff9d; line-height: 1.1; margin: 10px 0; text-shadow: 0 0 20px rgba(0, 255, 157, 0.4); }
         .final-label { font-size: 1rem; color: #aaa; letter-spacing: 2px; }
@@ -139,7 +139,7 @@
         }
         .process-tag { color: #05d9e8; font-weight: bold; margin-right: 4px; }
         
-        /* A/B Compare Styles */
+        /* A/B 比較スタイル */
         .crit-compare-block {
             margin-top: 6px;
             padding-left: 8px;
@@ -162,7 +162,7 @@
         .hand-tag { font-size: 0.9rem; padding: 2px 8px; border-radius: 4px; margin-left: 8px; }
         .hand-l { background: rgba(5, 217, 232, 0.2); color: #05d9e8; border: 1px solid #05d9e8; }
         
-        /* Crit Type Badge */
+        /* 会心タイプスタイル */
         .c-type { font-size: 0.8rem; color: #ff2a6d; margin-left: 5px; font-weight: normal; }
 
         .compare-tools {
@@ -321,7 +321,7 @@
 </head>
 <body>
 
-    <h1>⚡ DQX ダメージ計算機 v65</h1>
+    <h1>⚡ DQX 防衛用ダメージ計算機</h1>
 
     <div id="floatingWipe" class="floating-wipe hidden">
         <div class="wipe-label">期待値合計</div>
@@ -479,11 +479,11 @@
                             <input type="hidden" id="in_set_alch" value="13">
                         </div>
                         <div class="stat-row">
-                            <span class="stat-label">スキル(0-170)</span>
-                            <div class="stat-inputs"><span class="sub-label">錬</span><input type="number" id="in_skill_170" value="0" class="editable-val"></div>
+                            <span class="stat-label">スキル(0-150)</span>
+                            <div class="stat-inputs"><span class="sub-label">錬</span><input type="number" id="in_skill_150" value="0" class="editable-val"></div>
                         </div>
                         <div class="stat-row">
-                            <span class="stat-label">スキル(180-200)</span>
+                            <span class="stat-label">スキル(160-200)</span>
                             <div class="stat-inputs"><span class="sub-label">錬</span><input type="number" id="in_skill_alch" value="0" class="editable-val"></div>
                         </div>
                     </div>
@@ -729,7 +729,7 @@
         let currentHitCritMults = [];
         let currentHitIsLeft = []; 
         let currentHitCritTypes = []; 
-        let currentHitCritInfo = []; // Stores details for A/B comparison
+        let currentHitCritInfo = []; 
 
         const jobs = {
             'bato': { name: 'バトマス', base: 419, passive: 90, weapons: ['shugoryu', 'hayabusa'] },
@@ -855,7 +855,7 @@
             in_heart_select: document.getElementById('in_heart_select'),
             in_set_alch: document.getElementById('in_set_alch'),
             in_skill_alch: document.getElementById('in_skill_alch'),
-            in_skill_170: document.getElementById('in_skill_170')
+            in_skill_150: document.getElementById('in_skill_150')
         };
 
         const resultLabels = [
@@ -942,15 +942,15 @@
                 inputs.in_wepL_base.value = wData.atk; 
             }
             
-            // Auto Set Skill 170
+            // Auto Set Skill 150
             const wepType = weapons[inputs.calcWeapon.value].type;
-            let s170 = 0;
-            if(wepType === 'sword') s170 = 40;
-            else if(wepType === 'bow') s170 = 40;
-            else if(wepType === 'claw') s170 = 75;
-            else if(wepType === 'spear') s170 = 55;
-            else if(wepType === 'fan') s170 = 50;
-            document.getElementById('in_skill_170').value = s170;
+            let s150 = 0;
+            if(wepType === 'sword') s150 = 40;
+            else if(wepType === 'bow') s150 = 40;
+            else if(wepType === 'claw') s150 = 75;
+            else if(wepType === 'spear') s150 = 55;
+            else if(wepType === 'fan') s150 = 50;
+            document.getElementById('in_skill_150').value = s150;
 
             // Auto Set Weapon Attr Base
             let attrBaseVal = 0;
@@ -1052,7 +1052,7 @@
             });
             totalAlch += getNum('in_set_alch');
             totalAlch += getNum('in_skill_alch');
-            totalAlch += getNum('in_skill_170'); 
+            totalAlch += getNum('in_skill_150'); 
 
             // 表示用合計値更新
             inputs.txtStrTotal.innerText = totalStrBase;
@@ -1060,8 +1060,8 @@
             let dispEquip = getNum('in_wepR_base') + getNum('in_wepR_alch') + totalAccBase + totalAlch; 
             inputs.txtEquipTotal.innerText = dispEquip;
 
-            // --- Raw Stats (Pre-Baiki) ---
-            // Formula A needs this (Display Attack without Baiki)
+            // --- 素のステータス（バイキ前） ---
+            // 会心式Aで使用
             let rightBaseNoStr = totalAccBase + getNum('in_wepR_base');
             let rawRightAtk = totalStrBase + rightBaseNoStr + getNum('in_wepR_alch') + totalAlch;
 
@@ -1069,8 +1069,8 @@
             let leftBaseNoStr = totalAccBase + getNum('in_wepL_base');
             let rawLeftAtk = leftStr + leftBaseNoStr + getNum('in_wepL_alch') + totalAlch;
 
-            // --- Effective Stats (With Baiki) ---
-            // Formula B needs this
+            // --- 攻撃力（バイキ後） ---
+            // 会心式Bで仕様
             let atkR = 0;
             if (inputs.btnBaiki.classList.contains('active')) {
                 // バイキ: 基礎 x 1.4 + 錬金
@@ -1109,50 +1109,44 @@
             currentHitCritMults = []; 
             currentHitIsLeft = []; 
             currentHitCritTypes = []; 
-            currentHitCritInfo = []; // Clear detailed info
+            currentHitCritInfo = []; 
             let totalBaseDmg = 0;
 
             if (!skillData) return;
 
-            // Crit Calculation Logic
-            // Returns: { val: DamageVal, type: 'A'|'B', valA, valB, baseA, baseB }
+            // 会心計算ロジック
             const calcCritBase = (rawAtk, effAtk, hitMult, isLeft, skillData) => {
-                // Orb Factor (Skill only)
-                let orbVal = (skillData.isNormal) ? 0 : (skillData.orb || 0);
-                let orbFactor = 1.0 + (orbVal / 100.0);
-
-                // Formula A: RawAtk (Display Atk without Baiki) * Min(Mult, 1.0) * Orb
-                // ※修正: 「はやぶさ/ツメ通常」の場合は、0.7倍撃部分も式Aでは1.0倍として計算する
+                // 会心式 A: 素の攻撃力 (バイキ前として表示されているもの) * Min(Mult, 1.0)
                 let multA = hitMult;
                 if ((skillData.name.includes('隼') || skillData.name.includes('ツメ')) && skillData.isNormal) {
                      multA = 1.0;
                 } else {
-                     // 通常の上限1.0処理
                      if (multA > 1.0) multA = 1.0;
                 }
+                
+                let compA = rawAtk * multA;
 
-                let valA = rawAtk * multA * orbFactor;
-
-                // Formula B: Base(from EffAtk) * 1.2 * Mult * Orb * (Left? 2.15)
+                // 会心式 B: 基礎ダメージ(from EffAtk) * 1.2 * Mult * (Left? 2.15)
                 let baseComp = (effAtk / 2) - (finalDef / 4);
                 if (baseComp < 1) baseComp = 1;
-                
                 let leftFactor = isLeft ? 2.15 : 1.0;
-                let valB = baseComp * 1.2 * hitMult * orbFactor * leftFactor;
+                
+                let compB = baseComp * 1.2 * hitMult * leftFactor;
 
-                // Determine winner
-                let finalVal = (valA >= valB) ? valA : valB;
-                let type = (valA >= valB) ? 'A' : 'B';
+                // 大小比較 (without Orb)
+                let type = (compA >= compB) ? 'A' : 'B';
+                let finalVal = (type === 'A') ? compA : compB;
 
                 return { 
                     val: finalVal, type: type,
-                    valA: valA, baseA: rawAtk, multA: multA, orb: orbFactor,
-                    valB: valB, baseB: Math.floor(baseComp), multB: hitMult, left: leftFactor
+                    valA: compA, baseA: rawAtk, multA: multA,
+                    valB: compB, baseB: Math.floor(baseComp), multB: hitMult, left: leftFactor
                 };
             };
 
-            // Helper to generate Min/Max base from Center base
-            // Modified: Crit Random Range 95% - 105%
+            // Min/Max　生成ヘルパ
+            // Random Range = Normal(0.9375-1.0625)
+            // Crit Random Range = Normal(0.9375-1.0625) * Crit(0.95-1.05)
             const addHitData = (base, critBaseVal, critType, critInfoObj, critMult, isLeft = false) => {
                 // Normal (Round)
                 let minB = Math.round(base * 0.9375) - 1;
@@ -1160,9 +1154,11 @@
                 if(minB < 1) minB = 1;
                 if(maxB < 1) maxB = 1;
                 
-                // Crit (New Random: 95% - 105%)
-                let minC = Math.floor(critBaseVal * 0.95);
-                let maxC = Math.floor(critBaseVal * 1.05);
+                // Crit (Normal Random Range * Crit Random Range)
+                let minC = Math.round(critBaseVal * 0.9375) - 1;
+                minC = Math.floor(minC * 0.95);
+                let maxC = Math.round(critBaseVal * 1.0625) + 1;
+                maxC = Math.floor(maxC * 1.05);
                 if(minC < 1) minC = 1;
                 if(maxC < 1) maxC = 1;
 
@@ -1186,10 +1182,10 @@
                 let minB = val - width;
                 let maxB = val + width;
 
-                // 会心時基礎: 通常の1.4倍 (切り捨て) + Random 95-105%
+                // 会心時基礎: 通常の1.2~1.6倍 (切り捨て) 
                 let critCenter = Math.floor(center * 1.4);
-                let critMin = Math.floor(critCenter * 0.95);
-                let critMax = Math.floor(critCenter * 1.05);
+                let critMin = Math.floor(minB * 1.2);
+                let critMax = Math.floor(maxB * 1.6);
                 
                 currentHitBases.push(center);
                 currentHitMinBases.push(minB);
@@ -1334,7 +1330,7 @@
                 mergedAdd += parseFloat(btn.dataset.val);
             });
 
-            // Orb
+            // Orb (Calculate here but apply in mergedMag)
             let orbVal = (skillData && skillData.orb) ? (skillData.orb/100) : 0;
             mergedAdd += orbVal;
 
@@ -1466,7 +1462,7 @@
                 expectedTotal += Math.floor(exp);
                 sumRaw += n_med_raw; 
 
-                // Process Info for display (calc crit A/B final values)
+                // Process Info for display (apply final mults to A/B base)
                 let cFinalA = 0;
                 let cFinalB = 0;
                 if (cInfo.valA) cFinalA = calcStep(cInfo.valA, true);
@@ -1495,7 +1491,7 @@
             document.getElementById('wipeResult').innerText = expectedTotal.toLocaleString();
 
             let pureMult = attrMag * mergedMag * takenMag * fbMag;
-            document.getElementById('totalMult').innerText = `x ${pureMult.toFixed(2)} 倍 (期待値)`;
+            document.getElementById('totalMult').innerText = `x ${pureMult.toFixed(2)} 倍 (合計)`;
 
             // Beams
             const maxRef = 50000; 
@@ -1577,13 +1573,13 @@
                         `<span class="process-tag">[計算式]</span>` +
                         `${baseLabel}${d.base_med} ` +
                         `× 属${mults.attr.toFixed(2)} ` +
-                        `× 枠${mults.race.toFixed(2)} ` +
+                        `× 強${mults.race.toFixed(2)} ` +
                         `× 被${mults.taken.toFixed(2)} ` +
                         `× FB${mults.fb.toFixed(1)} ` +
                         `+ 加${mults.add} ` +
                         `= ${d.n_med}`;
                     
-                    // Show Crit Compare with Full Details
+                    // Show Crit Compare with Full Details (Single Line)
                     if (d.crit_info && d.c_type !== '固定1.4') {
                         let ci = d.crit_info;
                         let rowAClass = (d.c_type === 'A') ? "crit-row selected" : "crit-row";
@@ -1591,19 +1587,19 @@
                         let markA = (d.c_type === 'A') ? '<span style="color:#ff2a6d;">(採用)</span>' : '';
                         let markB = (d.c_type === 'B') ? '<span style="color:#ff2a6d;">(採用)</span>' : '';
 
-                        let leftInfo = ci.left > 1.0 ? `× 左${ci.left.toFixed(2)} ` : '';
+                        let leftInfo = ci.left > 1.0 ? `× 左特殊${ci.left.toFixed(2)} ` : '';
 
                         processStr += `
                         <div class="crit-compare-block">
                             <div class="${rowAClass}">
                                 <span class="crit-tag">式A</span> 
-                                <span class="crit-detail">攻(非)${ci.baseA} × 特${ci.multA.toFixed(2)} × 珠${ci.orb.toFixed(2)} = 基礎${Math.floor(ci.valA).toLocaleString()}</span>
+                                <span class="crit-detail">攻(ﾊﾞｲｷ前)${ci.baseA} × 倍率${ci.multA.toFixed(2)} = 基礎${Math.floor(ci.valA).toLocaleString()}</span>
                                 <span class="crit-arrow">→</span>
                                 <span class="crit-result-part">最終${d.c_final_a.toLocaleString()} ${markA}</span>
                             </div>
                             <div class="${rowBClass}">
                                 <span class="crit-tag">式B</span> 
-                                <span class="crit-detail">基(通)${ci.baseB} × 1.2 × 特${ci.multB.toFixed(2)} × 珠${ci.orb.toFixed(2)} ${leftInfo}= 基礎${Math.floor(ci.valB).toLocaleString()}</span>
+                                <span class="crit-detail">基礎${ci.baseB} × 倍率${ci.multB.toFixed(2)} × 会ﾎﾞｰﾅｽ1.2 ${leftInfo}= 基礎${Math.floor(ci.valB).toLocaleString()}</span>
                                 <span class="crit-arrow">→</span>
                                 <span class="crit-result-part">最終${d.c_final_b.toLocaleString()} ${markB}</span>
                             </div>
